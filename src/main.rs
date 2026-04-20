@@ -1,5 +1,10 @@
 use std::io;
+use std::fs::{self, File};
+use std::io::Write;
 
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 struct Task {
     id: usize,
     name: String,
@@ -30,7 +35,6 @@ fn view_current_tasks(list: &Vec<Task>) {
 }
 
 fn add_new_task(list: &mut Vec<Task>) {
-
     println!("Input task description");
     let mut task_name = String::new();
 
@@ -80,8 +84,27 @@ fn input_and_validate_task_id() -> usize {
     }
 }
 
+/* ------------------- NEW FUNCTIONS TO USE FILES AS PERSISTENCE ------------------- */
+
+fn save_tasks(list: &Vec<Task>) {
+    let json = serde_json::to_string(list).expect("Failed to serialize");
+    let mut file = File::create("tasks.json").expect("Failed to create file");
+    file.write_all(json.as_bytes()).expect("Failed to write");
+}
+
+fn load_tasks() -> Vec<Task> {
+    let data = fs::read_to_string("tasks.json");
+
+    match data {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_else(|_| Vec::new()),
+        Err(_) => Vec::new(),
+    }
+}
+
+/* ------------------- MAIN ------------------- */
+
 fn main() {
-    let mut list: Vec<Task> = Vec::new();
+    let mut list: Vec<Task> = load_tasks(); // ← CHANGED
 
     loop {
         show_options();
@@ -93,17 +116,27 @@ fn main() {
 
         match choice.trim() {
             "1" => view_current_tasks(&list),
-            "2" => add_new_task(&mut list),
+
+            "2" => {
+                add_new_task(&mut list);
+                save_tasks(&list);
+            }
+
             "3" => {
                 println!("Input task ID that you wish to be removed");
                 let task_remove_id = input_and_validate_task_id();
                 remove_task(&mut list, task_remove_id);
+                save_tasks(&list);
             }
+
             "4" => {
                 let mark_done_task_id = input_and_validate_task_id();
                 mark_done_task(&mut list, mark_done_task_id);
+                save_tasks(&list)
             }
+
             "5" => break,
+
             _ => {
                 println!("pick a valid option from the list!");
                 continue;
